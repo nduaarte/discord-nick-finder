@@ -2,8 +2,8 @@ import requests
 import random
 import string
 import time
-import itertools
 import os
+import subprocess
 
 # ─────────────────────────────────────────
 #  CONFIGURAÇÃO — 3 CARACTERES, LETRAS+NUMEROS+. _
@@ -12,16 +12,20 @@ TAMANHO = 3
 CHARS = string.ascii_lowercase + string.digits + "._"
 DELAY = 2.0
 ARQUIVO_SAIDA = "nicks_3_simbolos.txt"
-ARQUIVO_TESTADOS = "testados_3_chars.txt"  # LOG DE JÁ TESTADOS
+ARQUIVO_TESTADOS = "testados_3_chars.txt"
+
+# Token do GitHub (vai ser uma variável de ambiente no Railway)
+GITHUB_TOKEN = os.getenv("GITHUB_TOKEN", "")
+GITHUB_REPO = "seu_usuario/discord-nick-finder"  # MUDE PARA SEU USUARIO/REPO
 
 PROXIES_LISTA = [
-    "http://dauwberq:dq8inyg5ttsx@31.59.20.176:6754/",
-    "http://dauwberq:dq8inyg5ttsx@38.154.203.95:5863/",
-    "http://dauwberq:dq8inyg5ttsx@198.105.121.200:6462/",
-    "http://dauwberq:dq8inyg5ttsx@64.137.96.74:6641/",
-    "http://dauwberq:dq8inyg5ttsx@38.154.185.97:6370/",
-    "http://dauwberq:dq8inyg5ttsx@84.247.60.125:6095/",
-    "http://dauwberq:dq8inyg5ttsx@142.111.67.146:5611/"
+     "http://dauwberq:dq8inyg5ttsx@31.59.20.176:6754/",
+    "http://dauwberq:dq8inyg5ttsx@92.113.242.158:6742/",
+   "http://dauwberq:dq8inyg5ttsx@38.154.203.95:5863/" ,
+   "http://dauwberq:dq8inyg5ttsx@198.105.121.200:6462/" ,
+    "http://dauwberq:dq8inyg5ttsx@64.137.96.74:6641/" ,
+     "http://dauwberq:dq8inyg5ttsx@38.154.185.97:6370/" ,
+   "http://dauwberq:dq8inyg5ttsx@142.111.67.146:5611/" 
 ]
 # ─────────────────────────────────────────
 
@@ -41,6 +45,31 @@ def salvar_testado(nick):
     """Salva um nick testado no arquivo"""
     with open(ARQUIVO_TESTADOS, "a") as f:
         f.write(nick + "\n")
+
+def fazer_commit_github(mensagem):
+    """Faz commit e push dos arquivos para GitHub"""
+    if not GITHUB_TOKEN:
+        return False
+    
+    try:
+        # Configura git
+        os.system('git config --local user.email "railway@bot.com"')
+        os.system('git config --local user.name "Railway Bot"')
+        
+        # Adiciona arquivos
+        os.system('git add testados_3_chars.txt nicks_3_simbolos.txt')
+        
+        # Commit
+        os.system(f'git commit -m "{mensagem}"')
+        
+        # Push com token
+        os.system(f'git push https://{GITHUB_TOKEN}@github.com/{GITHUB_REPO}.git HEAD:main')
+        
+        print(f"  ☁️  Sincronizado no GitHub!", flush=True)
+        return True
+    except Exception as e:
+        print(f"  ⚠️  Erro ao sincronizar: {e}", flush=True)
+        return False
 
 def gerar_senha():
     upper = random.choices(string.ascii_uppercase, k=4)
@@ -90,24 +119,23 @@ def verificar_disponibilidade(username):
 
 
 def main():
-    print("🎯 Discord Finder — 3 chars (sem repetir)")
+    print("🎯 Discord Finder — 3 chars + GitHub Sync")
     print("=" * 50)
     print(f"Caracteres: {CHARS}")
     print(f"Combinações possíveis: {len(CHARS)**TAMANHO:,}")
     print("=" * 50)
     
-    # Carrega nicks já testados
     testados = carregar_testados()
     print(f"Nicks já testados: {len(testados)}")
     print()
 
     tentativas = 0
     encontrados = []
+    commits_pendentes = 0
 
-    while True:  # Loop infinito — roda até encontrar todos ou você parar
+    while True:
         nick = gerar_nick()
         
-        # Pula se já foi testado
         if nick in testados:
             continue
         
@@ -123,21 +151,28 @@ def main():
             encontrados.append(nick)
             with open(ARQUIVO_SAIDA, "a") as f:
                 f.write(nick + "\n")
-            # Também salva no log de testados
             salvar_testado(nick)
+            commits_pendentes += 1
+            
+            # Faz commit imediato quando encontra algo
+            fazer_commit_github(f"🎉 Nick disponível encontrado: {nick}")
+            commits_pendentes = 0
 
         elif disponivel is False:
             print("❌ ocupado", flush=True)
-            # Salva mesmo que ocupado, pra não testar de novo
             salvar_testado(nick)
+            commits_pendentes += 1
 
         else:
             print("⚠️  erro", flush=True)
-            # Não salva se teve erro, pra tentar de novo depois
 
         time.sleep(DELAY)
 
-        # Log a cada 100 tentativas
+        # Commit a cada 200 testadas ou se tiver pendências
+        if tentativas % 200 == 0 and commits_pendentes > 0:
+            fazer_commit_github(f"📊 Progresso: {tentativas} testadas, {len(encontrados)} encontradas")
+            commits_pendentes = 0
+
         if tentativas % 100 == 0:
             print(f"  📊 Progresso: {tentativas} testadas, {len(encontrados)} encontradas", flush=True)
 
@@ -151,3 +186,5 @@ if __name__ == "__main__":
         main()
     except KeyboardInterrupt:
         print("\n⛔ Parado pelo usuário.")
+        # Faz último commit ao parar
+        fazer_commit_github("⛔ Script parado manualmente")
