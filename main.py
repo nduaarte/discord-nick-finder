@@ -3,6 +3,7 @@ import random
 import string
 import time
 import itertools
+import os
 
 # ─────────────────────────────────────────
 #  CONFIGURAÇÃO — 3 CARACTERES, LETRAS+NUMEROS+. _
@@ -10,18 +11,10 @@ import itertools
 TAMANHO = 3
 CHARS = string.ascii_lowercase + string.digits + "._"
 DELAY = 2.0
-MAX_TENTATIVAS = 10000
 ARQUIVO_SAIDA = "nicks_3_simbolos.txt"
+ARQUIVO_TESTADOS = "testados_3_chars.txt"  # LOG DE JÁ TESTADOS
 
-PROXIES_LISTA = [
-    "http://dauwberq:dq8inyg5ttsx@31.59.20.176:6754/",
-    "http://dauwberq:dq8inyg5ttsx@38.154.203.95:5863/",
-    "http://dauwberq:dq8inyg5ttsx@198.105.121.200:6462/",
-    "http://dauwberq:dq8inyg5ttsx@64.137.96.74:6641/",
-    "http://dauwberq:dq8inyg5ttsx@38.154.185.97:6370/",
-    "http://dauwberq:dq8inyg5ttsx@84.247.60.125:6095/",
-    "http://dauwberq:dq8inyg5ttsx@142.111.67.146:5611/"
-]  # sem proxy por enquanto
+PROXIES_LISTA = []
 # ─────────────────────────────────────────
 
 HEADERS = {
@@ -29,13 +22,17 @@ HEADERS = {
     "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
 }
 
-_proxy_cycle = itertools.cycle(PROXIES_LISTA) if PROXIES_LISTA else None
+def carregar_testados():
+    """Carrega nicks já testados do arquivo"""
+    if os.path.exists(ARQUIVO_TESTADOS):
+        with open(ARQUIVO_TESTADOS, "r") as f:
+            return set(line.strip() for line in f if line.strip())
+    return set()
 
-def pegar_proxy():
-    if not _proxy_cycle:
-        return None
-    p = next(_proxy_cycle)
-    return {"http": p, "https": p}
+def salvar_testado(nick):
+    """Salva um nick testado no arquivo"""
+    with open(ARQUIVO_TESTADOS, "a") as f:
+        f.write(nick + "\n")
 
 def gerar_senha():
     upper = random.choices(string.ascii_uppercase, k=4)
@@ -61,9 +58,8 @@ def verificar_disponibilidade(username):
         "date_of_birth": "2000-01-01",
         "consent": True
     }
-    proxy = pegar_proxy()
     try:
-        r = requests.post(url, json=payload, headers=HEADERS, proxies=proxy, timeout=15)
+        r = requests.post(url, json=payload, headers=HEADERS, timeout=15)
         data = r.json()
         errors = str(data)
 
@@ -79,32 +75,34 @@ def verificar_disponibilidade(username):
             time.sleep(retry)
             return None
         else:
-            print(f"  HTTP {r.status_code}", flush=True)
             return None
-    except requests.exceptions.ProxyError as e:
-        print(f"  ❌ Proxy erro: {e}", flush=True)
-        return None
     except requests.RequestException as e:
         print(f"  ❌ Erro: {e}", flush=True)
         return None
 
 
 def main():
-    print("🎯 Discord Finder — 3 chars (Railway)")
+    print("🎯 Discord Finder — 3 chars (sem repetir)")
     print("=" * 50)
     print(f"Caracteres: {CHARS}")
     print(f"Combinações possíveis: {len(CHARS)**TAMANHO:,}")
     print("=" * 50)
+    
+    # Carrega nicks já testados
+    testados = carregar_testados()
+    print(f"Nicks já testados: {len(testados)}")
     print()
 
-    testados = set()
     tentativas = 0
     encontrados = []
 
-    while tentativas < MAX_TENTATIVAS:
+    while True:  # Loop infinito — roda até encontrar todos ou você parar
         nick = gerar_nick()
+        
+        # Pula se já foi testado
         if nick in testados:
             continue
+        
         testados.add(nick)
         tentativas += 1
 
@@ -117,20 +115,27 @@ def main():
             encontrados.append(nick)
             with open(ARQUIVO_SAIDA, "a") as f:
                 f.write(nick + "\n")
+            # Também salva no log de testados
+            salvar_testado(nick)
 
         elif disponivel is False:
             print("❌ ocupado", flush=True)
+            # Salva mesmo que ocupado, pra não testar de novo
+            salvar_testado(nick)
 
         else:
             print("⚠️  erro", flush=True)
+            # Não salva se teve erro, pra tentar de novo depois
 
         time.sleep(DELAY)
+
+        # Log a cada 100 tentativas
+        if tentativas % 100 == 0:
+            print(f"  📊 Progresso: {tentativas} testadas, {len(encontrados)} encontradas", flush=True)
 
     print()
     print("=" * 50)
     print(f"✔ Total: {len(encontrados)} nicks encontrados")
-    if encontrados:
-        print(f"Nicks: {encontrados}")
 
 
 if __name__ == "__main__":
