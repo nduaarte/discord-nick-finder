@@ -3,7 +3,6 @@ import random
 import string
 import time
 import itertools
-import os
 
 # ─────────────────────────────────────────
 #  CONFIGURAÇÃO — 3 CARACTERES, LETRAS+NUMEROS+. _
@@ -76,20 +75,27 @@ def verificar_disponibilidade(username):
             return True
         elif r.status_code == 429:
             retry = float(r.headers.get("Retry-After", 5))
-            print(f"⚠️  Rate limit! Aguardando {retry:.0f}s...")
+            print(f"  ⚠️  Rate limit! Aguardando {retry:.0f}s...", flush=True)
             time.sleep(retry)
             return None
         else:
+            print(f"  HTTP {r.status_code}", flush=True)
             return None
-    except requests.exceptions.ProxyError:
+    except requests.exceptions.ProxyError as e:
+        print(f"  ❌ Proxy erro: {e}", flush=True)
         return None
-    except requests.RequestException:
+    except requests.RequestException as e:
+        print(f"  ❌ Erro: {e}", flush=True)
         return None
 
 
 def main():
     print("🎯 Discord Finder — 3 chars (Railway)")
     print("=" * 50)
+    print(f"Caracteres: {CHARS}")
+    print(f"Combinações possíveis: {len(CHARS)**TAMANHO:,}")
+    print("=" * 50)
+    print()
 
     testados = set()
     tentativas = 0
@@ -102,25 +108,33 @@ def main():
         testados.add(nick)
         tentativas += 1
 
+        print(f"[{tentativas:>5}] Testando: {nick} ... ", end="", flush=True)
+
         disponivel = verificar_disponibilidade(nick)
 
         if disponivel is True:
+            print("✅ DISPONÍVEL!", flush=True)
             encontrados.append(nick)
             with open(ARQUIVO_SAIDA, "a") as f:
                 f.write(nick + "\n")
-            print(f"[{tentativas:>5}] ✅ {nick} DISPONÍVEL!")
 
         elif disponivel is False:
-            if tentativas % 50 == 0:
-                print(f"[{tentativas:>5}] Testando...")
+            print("❌ ocupado", flush=True)
+
+        else:
+            print("⚠️  erro", flush=True)
 
         time.sleep(DELAY)
 
-    print(f"\n✔ Total: {len(encontrados)} nicks encontrados")
+    print()
+    print("=" * 50)
+    print(f"✔ Total: {len(encontrados)} nicks encontrados")
+    if encontrados:
+        print(f"Nicks: {encontrados}")
 
 
 if __name__ == "__main__":
     try:
         main()
     except KeyboardInterrupt:
-        print("\n⛔ Parado.")
+        print("\n⛔ Parado pelo usuário.")
