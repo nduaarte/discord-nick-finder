@@ -18,7 +18,6 @@ GITHUB_TOKEN = os.getenv("GITHUB_TOKEN", "")
 GITHUB_REPO = os.getenv("GITHUB_REPO", "seu_usuario/discord-nick-finder")
 
 # Lista de Proxies (Lê do ambiente se configurado, senão usa a padrão)
-# Recomendado salvar no Railway como PROXIES_LISTA separados por vírgula
 if os.getenv("PROXIES_LISTA"):
     PROXIES_LISTA = [p.strip() for p in os.getenv("PROXIES_LISTA").split(",")]
 else:
@@ -93,15 +92,13 @@ def verificar_disponibilidade(username, proxy_url):
         "consent": True
     }
     
-    # Configura o proxy para HTTP e HTTPS
     proxies_config = {
         "http": proxy_url,
         "https": proxy_url
     }
 
     try:
-        # Adicionado o parâmetro proxies na requisição
-        r = requests.post(url, json=payload, headers=HEADERS, proxies=proxies_config, timeout=12)
+        r = requests.post(url, json=payload, headers=HEADERS, proxies=proxies_config, timeout=10)
         data = r.json()
         errors = str(data)
 
@@ -113,17 +110,17 @@ def verificar_disponibilidade(username, proxy_url):
             return True
         elif r.status_code == 429:
             retry = float(r.headers.get("Retry-After", 5))
-            print(f"  ⚠️  Rate limit no IP do Proxy! Aguardando {retry:.0f}s...", flush=True)
-            time.sleep(retry)
+            # APENAS AVISA, NÃO TRAVA MAIS O SCRIPT AQUI
+            print(f"  ⚠️  Rate limit no IP do Proxy! (Bloqueio de {retry:.0f}s)", end="", flush=True)
             return None
         else:
             return None
-    except requests.RequestException as e:
-        print(f"  ❌ Erro de conexão no proxy ({proxy_url.split('@')[-1]}): {e}", flush=True)
+    except requests.RequestException:
+        print("  ❌ Erro de conexão no proxy", end="", flush=True)
         return None
 
 def main():
-    print("🎯 Discord Finder — 3 chars + GitHub Sync + Proxies")
+    print("🎯 Discord Finder — 3 chars + GitHub Sync + Proxies Auto-Skip")
     print("=" * 50)
     print(f"Caracteres: {CHARS}")
     print(f"Combinações possíveis: {len(CHARS)**TAMANHO:,}")
@@ -145,21 +142,20 @@ def main():
     while True:
         nick = gerar_nick()
         
+        # Ignora se já foi testado com sucesso anteriormente
         if nick in testados:
             continue
         
-        testados.add(nick)
-        tentativas += 1
+        print(f"[{tentativas+1:>5}] Testando: {nick} ... ", end="", flush=True)
 
-        print(f"[{tentativas:>5}] Testando: {nick} ... ", end="", flush=True)
-
-        # Sorteia um proxy diferente para cada requisição
+        # Sorteia um proxy para a tentativa atual
         proxy_atual = random.choice(PROXIES_LISTA)
-
         disponivel = verificar_disponibilidade(nick, proxy_atual)
 
         if disponivel is True:
-            print("✅ DISPONÍVEL!", flush=True)
+            tentativas += 1
+            testados.add(nick)
+            print(" ✅ DISPONÍVEL!", flush=True)
             encontrados.append(nick)
             with open(ARQUIVO_SAIDA, "a") as f:
                 f.write(nick + "\n")
@@ -168,23 +164,28 @@ def main():
             
             fazer_commit_github(f"🎉 Nick disponível encontrado: {nick}")
             commits_pendentes = 0
+            time.sleep(DELAY)
 
         elif disponivel is False:
-            print("❌ ocupado", flush=True)
+            tentativas += 1
+            testados.add(nick)
+            print(" ❌ ocupado", flush=True)
             salvar_testado(nick)
             commits_pendentes += 1
+            time.sleep(DELAY)
 
         else:
-            print("⚠️  erro/bloqueio", flush=True)
+            # Se deu 429 ou erro de conexão, o código cai aqui.
+            # O nick NÃO entra para a lista de salvos/testados e será tentado de novo depois.
+            print(" -> 🔄 Pulando e alternando proxy imediatamente...", flush=True)
+            # Sem time.sleep(DELAY) aqui para ir direto pro próximo proxy sem perder tempo
 
-        time.sleep(DELAY)
-
-        # Commit a cada 200 testadas se houver algo pendente
-        if tentativas % 200 == 0 and commits_pendentes > 0:
+        # Commit a cada 200 testadas efetivas se houver algo pendente
+        if tentativas > 0 and tentativas % 200 == 0 and commits_pendentes > 0:
             fazer_commit_github(f"📊 Progresso: {tentativas} testadas, {len(encontrados)} encontradas")
             commits_pendentes = 0
 
-        if tentativas % 100 == 0:
+        if tentativas > 0 and tentativas % 100 == 0 and disponivel is not None:
             print(f"  📊 Progresso: {tentativas} testadas, {len(encontrados)} encontradas", flush=True)
 
 
