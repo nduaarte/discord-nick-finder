@@ -12,7 +12,7 @@ TAMANHO = 4
 CHARS = string.ascii_lowercase  # Apenas letras minúsculas (a-z)
 DELAY = 2.0
 
-# Conexão Automática com o Redis do Railway
+# Conexão Automática com o Redis do Railway para lembrar dos nicks já testados
 REDIS_URL = os.getenv("REDIS_URL")
 
 if REDIS_URL:
@@ -50,11 +50,9 @@ def gerar_senha():
     return "".join(all_chars)
 
 def gerar_nick():
-    """Gera um nick aleatório baseado no tamanho e caracteres definidos"""
     return "".join(random.choices(CHARS, k=TAMANHO))
 
 def verificar_disponibilidade(username, proxy_url):
-    """Verifica a disponibilidade usando um proxy específico"""
     url = "https://discord.com/api/v9/auth/register"
     payload = {
         "username": username,
@@ -91,17 +89,16 @@ def verificar_disponibilidade(username, proxy_url):
         return None
 
 def main():
-    print("🎯 Discord Finder — 4 letras + Persistência em Redis")
+    print("🎯 Discord Finder — 4 letras + Logs do Railway")
     print("=" * 50)
     print(f"Caracteres: {CHARS}")
-    print(f"Combinações possíveis: {len(CHARS)**TAMANHO:,}")  # 26^4 = 456.976 combinações
+    print(f"Combinações possíveis: {len(CHARS)**TAMANHO:,}")
     print(f"Proxies carregados: {len(PROXIES_LISTA)}")
     
     try:
-        total_testados_inicial = db.scard("discord:testados")
-        total_encontrados_inicial = db.scard("discord:disponiveis")
-        print(f"🔗 Conectado ao Redis com sucesso!")
-        print(f"📊 Progresso atual no banco: {total_testados_inicial} testados | {total_encontrados_inicial} disponíveis")
+        # Mudamos o nome da chave para isolar o histórico dos nicks de 4 letras
+        total_testados_inicial = db.scard("discord:4letras:testados")
+        print(f"🔗 Conectado ao Redis! {total_testados_inicial} nicks já conhecidos na memória.")
     except redis.RedisError as e:
         print(f"🚨 Erro crítico ao conectar no Redis: {e}")
         return
@@ -118,8 +115,8 @@ def main():
     while True:
         nick = gerar_nick()
         
-        # Verifica se o nick já foi testado antes
-        if db.sismember("discord:testados", nick):
+        # O Redis impede o script de testar o mesmo nick duas vezes
+        if db.sismember("discord:4letras:testados", nick):
             continue
         
         print(f"[{tentativas_sessao+1:>5}] Testando: {nick} ... ", end="", flush=True)
@@ -129,27 +126,28 @@ def main():
 
         if disponivel is True:
             tentativas_sessao += 1
-            print(" ✅ DISPONÍVEL!", flush=True)
+            # Destaca bem no log para você achar fácil depois
+            print(" ✨🎉 ✅ DISPONÍVEL! ✅ 🎉✨", flush=True)
             
-            db.sadd("discord:testados", nick)
-            db.sadd("discord:disponiveis", nick)
+            # Salva na memória de testados para não repetir
+            db.sadd("discord:4letras:testados", nick)
             time.sleep(DELAY)
 
         elif disponivel is False:
             tentativas_sessao += 1
             print(" ❌ ocupado", flush=True)
             
-            db.sadd("discord:testados", nick)
+            # Salva na memória de testados para não repetir
+            db.sadd("discord:4letras:testados", nick)
             time.sleep(DELAY)
 
         else:
             print(" -> 🔄 Pulando e alternando proxy imediatamente...", flush=True)
 
-        # Exibe progresso geral a cada 10 verificações bem-sucedidas
+        # Print de progresso a cada 10 rodadas
         if tentativas_sessao > 0 and tentativas_sessao % 10 == 0 and disponivel is not None:
-            total_geral = db.scard("discord:testados")
-            total_achados = db.scard("discord:disponiveis")
-            print(f"  📊 TOTAL DO BANCO: {total_geral} testados, {total_achados} disponíveis encontrados", flush=True)
+            total_geral = db.scard("discord:4letras:testados")
+            print(f"  📊 Progresso total de 4 letras testados: {total_geral}", flush=True)
 
 
 if __name__ == "__main__":
