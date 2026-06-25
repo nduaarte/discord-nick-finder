@@ -26,12 +26,15 @@ if os.getenv("PROXIES_LISTA"):
 else:
     PROXIES_LISTA = [
         "http://dauwberq:dq8inyg5ttsx@31.59.20.176:6754/",
-        "http://dauwberq:dq8inyg5ttsx@92.113.242.158:6742/",
+        "http://dauwberq:dq8inyg5ttsx@31.56.127.193:7684/",
+        "http://dauwberq:dq8inyg5ttsx@45.38.107.97:6014/",
         "http://dauwberq:dq8inyg5ttsx@38.154.203.95:5863/",
         "http://dauwberq:dq8inyg5ttsx@198.105.121.200:6462/",
         "http://dauwberq:dq8inyg5ttsx@64.137.96.74:6641/",
+        "http://dauwberq:dq8inyg5ttsx@198.23.243.226:6361/",
         "http://dauwberq:dq8inyg5ttsx@38.154.185.97:6370/",
-        "http://dauwberq:dq8inyg5ttsx@142.111.67.146:5611/" 
+        "http://dauwberq:dq8inyg5ttsx@142.111.67.146:5611/",
+        "http://dauwberq:dq8inyg5ttsx@191.96.254.138:6185/",        
     ]
 # ─────────────────────────────────────────
 
