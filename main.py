@@ -3,19 +3,22 @@ import random
 import string
 import time
 import os
+import redis
 
 # ─────────────────────────────────────────
-# CONFIGURAÇÃO — 3 CARACTERES, LETRAS+NUMEROS+. _
+# CONFIGURAÇÃO — 4 CARACTERES, APENAS LETRAS
 # ─────────────────────────────────────────
-TAMANHO = 3
-CHARS = string.ascii_lowercase + string.digits + "._"
+TAMANHO = 4
+CHARS = string.ascii_lowercase  # Apenas letras minúsculas (a-z)
 DELAY = 2.0
-ARQUIVO_SAIDA = "nicks_3_simbolos.txt"
-ARQUIVO_TESTADOS = "testados_3_chars.txt"
 
-# Token e Repositório do GitHub (Configurados via variáveis de ambiente)
-GITHUB_TOKEN = os.getenv("GITHUB_TOKEN", "")
-GITHUB_REPO = os.getenv("GITHUB_REPO", "seu_usuario/discord-nick-finder")
+# Conexão Automática com o Redis do Railway
+REDIS_URL = os.getenv("REDIS_URL")
+
+if REDIS_URL:
+    db = redis.Redis.from_url(REDIS_URL, decode_responses=True)
+else:
+    db = redis.Redis(host='localhost', port=6379, decode_responses=True)
 
 # Lista de Proxies (Lê do ambiente se configurado, senão usa a padrão)
 if os.getenv("PROXIES_LISTA"):
@@ -37,35 +40,6 @@ HEADERS = {
     "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
 }
 
-def carregar_testados():
-    """Carrega nicks já testados do arquivo"""
-    if os.path.exists(ARQUIVO_TESTADOS):
-        with open(ARQUIVO_TESTADOS, "r") as f:
-            return set(line.strip() for line in f if line.strip())
-    return set()
-
-def salvar_testado(nick):
-    """Salva um nick testado no arquivo"""
-    with open(ARQUIVO_TESTADOS, "a") as f:
-        f.write(nick + "\n")
-
-def fazer_commit_github(mensagem):
-    """Faz commit e push dos arquivos para GitHub"""
-    if not GITHUB_TOKEN:
-        return False
-    
-    try:
-        os.system('git config --local user.email "railway@bot.com"')
-        os.system('git config --local user.name "Railway Bot"')
-        os.system(f'git add {ARQUIVO_TESTADOS} {ARQUIVO_SAIDA}')
-        os.system(f'git commit -m "{mensagem}"')
-        os.system(f'git push https://{GITHUB_TOKEN}@github.com/{GITHUB_REPO}.git HEAD:main')
-        print(f"  ☁️  Sincronizado no GitHub!", flush=True)
-        return True
-    except Exception as e:
-        print(f"  ⚠️  Erro ao sincronizar: {e}", flush=True)
-        return False
-
 def gerar_senha():
     upper = random.choices(string.ascii_uppercase, k=4)
     lower = random.choices(string.ascii_lowercase, k=4)
@@ -76,10 +50,8 @@ def gerar_senha():
     return "".join(all_chars)
 
 def gerar_nick():
-    while True:
-        nick = "".join(random.choices(CHARS, k=TAMANHO))
-        if nick[0] not in "._" and nick[-1] not in "._":
-            return nick
+    """Gera um nick aleatório baseado no tamanho e caracteres definidos"""
+    return "".join(random.choices(CHARS, k=TAMANHO))
 
 def verificar_disponibilidade(username, proxy_url):
     """Verifica a disponibilidade usando um proxy específico"""
@@ -110,7 +82,6 @@ def verificar_disponibilidade(username, proxy_url):
             return True
         elif r.status_code == 429:
             retry = float(r.headers.get("Retry-After", 5))
-            # APENAS AVISA, NÃO TRAVA MAIS O SCRIPT AQUI
             print(f"  ⚠️  Rate limit no IP do Proxy! (Bloqueio de {retry:.0f}s)", end="", flush=True)
             return None
         else:
@@ -120,20 +91,25 @@ def verificar_disponibilidade(username, proxy_url):
         return None
 
 def main():
-    print("🎯 Discord Finder — 3 chars + GitHub Sync + Proxies Auto-Skip")
+    print("🎯 Discord Finder — 4 letras + Persistência em Redis")
     print("=" * 50)
     print(f"Caracteres: {CHARS}")
-    print(f"Combinações possíveis: {len(CHARS)**TAMANHO:,}")
+    print(f"Combinações possíveis: {len(CHARS)**TAMANHO:,}")  # 26^4 = 456.976 combinações
     print(f"Proxies carregados: {len(PROXIES_LISTA)}")
-    print("=" * 50)
     
-    testados = carregar_testados()
-    print(f"Nicks já testados: {len(testados)}")
+    try:
+        total_testados_inicial = db.scard("discord:testados")
+        total_encontrados_inicial = db.scard("discord:disponiveis")
+        print(f"🔗 Conectado ao Redis com sucesso!")
+        print(f"📊 Progresso atual no banco: {total_testados_inicial} testados | {total_encontrados_inicial} disponíveis")
+    except redis.RedisError as e:
+        print(f"🚨 Erro crítico ao conectar no Redis: {e}")
+        return
+        
+    print("=" * 50)
     print()
 
-    tentativas = 0
-    encontrados = []
-    commits_pendentes = 0
+    tentativas_sessao = 0
 
     if not PROXIES_LISTA:
         print("🚨 Erro: Nenhuma proxy configurada. Abortando.")
@@ -142,51 +118,38 @@ def main():
     while True:
         nick = gerar_nick()
         
-        # Ignora se já foi testado com sucesso anteriormente
-        if nick in testados:
+        # Verifica se o nick já foi testado antes
+        if db.sismember("discord:testados", nick):
             continue
         
-        print(f"[{tentativas+1:>5}] Testando: {nick} ... ", end="", flush=True)
+        print(f"[{tentativas_sessao+1:>5}] Testando: {nick} ... ", end="", flush=True)
 
-        # Sorteia um proxy para a tentativa atual
         proxy_atual = random.choice(PROXIES_LISTA)
         disponivel = verificar_disponibilidade(nick, proxy_atual)
 
         if disponivel is True:
-            tentativas += 1
-            testados.add(nick)
+            tentativas_sessao += 1
             print(" ✅ DISPONÍVEL!", flush=True)
-            encontrados.append(nick)
-            with open(ARQUIVO_SAIDA, "a") as f:
-                f.write(nick + "\n")
-            salvar_testado(nick)
-            commits_pendentes += 1
             
-            fazer_commit_github(f"🎉 Nick disponível encontrado: {nick}")
-            commits_pendentes = 0
+            db.sadd("discord:testados", nick)
+            db.sadd("discord:disponiveis", nick)
             time.sleep(DELAY)
 
         elif disponivel is False:
-            tentativas += 1
-            testados.add(nick)
+            tentativas_sessao += 1
             print(" ❌ ocupado", flush=True)
-            salvar_testado(nick)
-            commits_pendentes += 1
+            
+            db.sadd("discord:testados", nick)
             time.sleep(DELAY)
 
         else:
-            # Se deu 429 ou erro de conexão, o código cai aqui.
-            # O nick NÃO entra para a lista de salvos/testados e será tentado de novo depois.
             print(" -> 🔄 Pulando e alternando proxy imediatamente...", flush=True)
-            # Sem time.sleep(DELAY) aqui para ir direto pro próximo proxy sem perder tempo
 
-        # Commit a cada 200 testadas efetivas se houver algo pendente
-        if tentativas > 0 and tentativas % 200 == 0 and commits_pendentes > 0:
-            fazer_commit_github(f"📊 Progresso: {tentativas} testadas, {len(encontrados)} encontradas")
-            commits_pendentes = 0
-
-        if tentativas > 0 and tentativas % 100 == 0 and disponivel is not None:
-            print(f"  📊 Progresso: {tentativas} testadas, {len(encontrados)} encontradas", flush=True)
+        # Exibe progresso geral a cada 10 verificações bem-sucedidas
+        if tentativas_sessao > 0 and tentativas_sessao % 10 == 0 and disponivel is not None:
+            total_geral = db.scard("discord:testados")
+            total_achados = db.scard("discord:disponiveis")
+            print(f"  📊 TOTAL DO BANCO: {total_geral} testados, {total_achados} disponíveis encontrados", flush=True)
 
 
 if __name__ == "__main__":
@@ -194,4 +157,3 @@ if __name__ == "__main__":
         main()
     except KeyboardInterrupt:
         print("\n⛔ Parado pelo usuário.")
-        fazer_commit_github("⛔ Script parado manualmente")
