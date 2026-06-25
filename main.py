@@ -25,16 +25,15 @@ if os.getenv("PROXIES_LISTA"):
     PROXIES_LISTA = [p.strip() for p in os.getenv("PROXIES_LISTA").split(",")]
 else:
     PROXIES_LISTA = [
-        "http://dauwberq:dq8inyg5ttsx@31.59.20.176:6754/",
-        "http://dauwberq:dq8inyg5ttsx@31.56.127.193:7684/",
-        "http://dauwberq:dq8inyg5ttsx@45.38.107.97:6014/",
-        "http://dauwberq:dq8inyg5ttsx@38.154.203.95:5863/",
-        "http://dauwberq:dq8inyg5ttsx@198.105.121.200:6462/",
-        "http://dauwberq:dq8inyg5ttsx@64.137.96.74:6641/",
-        "http://dauwberq:dq8inyg5ttsx@198.23.243.226:6361/",
-        "http://dauwberq:dq8inyg5ttsx@38.154.185.97:6370/",
-        "http://dauwberq:dq8inyg5ttsx@142.111.67.146:5611/",
-        "http://dauwberq:dq8inyg5ttsx@191.96.254.138:6185/",        
+        "http://rzvhgrsr:551w6d36l0fb@31.59.20.176:6754/",
+        "http://rzvhgrsr:551w6d36l0fb@45.38.107.97:6014/",
+        "http://rzvhgrsr:551w6d36l0fb@38.154.203.95:5863/",
+        "http://rzvhgrsr:551w6d36l0fb@198.105.121.200:6462/",
+        "http://rzvhgrsr:551w6d36l0fb@64.137.96.74:6641/",
+        "http://rzvhgrsr:551w6d36l0fb@198.23.243.226:6361/",
+        "http://rzvhgrsr:551w6d36l0fb@38.154.185.97:6370/",
+        "http://rzvhgrsr:551w6d36l0fb@142.111.67.146:5611/",
+        "http://rzvhgrsr:551w6d36l0fb@191.96.254.138:6185/",
     ]
 # ─────────────────────────────────────────
 
