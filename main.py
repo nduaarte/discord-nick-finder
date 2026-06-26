@@ -97,7 +97,8 @@ def main():
     
     try:
         total_testados_inicial = db.scard("discord:4letras:testados")
-        print(f"🔗 Conectado ao Redis! {total_testados_inicial} nicks já conhecidos na memória.")
+        total_achados_inicial = db.scard("discord:4letras:disponiveis")
+        print(f"🔗 Conectado ao Redis! {total_testados_inicial} conhecidos | {total_achados_inicial} já encontrados.")
     except redis.RedisError as e:
         print(f"🚨 Erro crítico ao conectar no Redis: {e}")
         return
@@ -121,7 +122,10 @@ def main():
         if disponivel is True:
             tentativas_sessao += 1
             print(" ✨🎉 ✅ DISPONÍVEL! ✅ 🎉✨", flush=True)
+            
+            # SALVA EM AMBOS: No histórico geral e na lista de conquistas
             db.sadd("discord:4letras:testados", nick)
+            db.sadd("discord:4letras:disponiveis", nick)
             time.sleep(DELAY)
 
         elif disponivel is False:
@@ -136,7 +140,8 @@ def main():
 
         if tentativas_sessao > 0 and tentativas_sessao % 10 == 0 and disponivel is not None:
             total_geral = db.scard("discord:4letras:testados")
-            print(f"  📊 Progresso total de 4 letras testados: {total_geral}", flush=True)
+            total_sucessos = db.scard("discord:4letras:disponiveis")
+            print(f"  📊 Progresso: {total_geral} testados | ⭐ {total_sucessos} DISPONÍVEIS salvos.", flush=True)
 
 
 if __name__ == "__main__":
