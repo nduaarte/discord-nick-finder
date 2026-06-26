@@ -62,13 +62,18 @@ def verificar_disponibilidade(username, proxy_url=None):
         "consent": True
     }
     
-    proxies_config = {
-        "http": proxy_url,
-        "https": proxy_url
-    } if proxy_url else None
+    # Força a conversão para SOCKS5, que resolve o bloqueio de handshake da Webshare no Railway
+    proxies_config = None
+    if proxy_url:
+        socks_url = proxy_url.replace("http://", "socks5://")
+        proxies_config = {
+            "http": socks_url,
+            "https": socks_url
+        }
 
     try:
-        r = requests.post(url, json=payload, headers=HEADERS, proxies=proxies_config, timeout=10)
+        # Timeout curto de 5s para rodar mais fluido
+        r = requests.post(url, json=payload, headers=HEADERS, proxies=proxies_config, timeout=5)
         data = r.json()
         errors = str(data)
 
@@ -88,7 +93,7 @@ def verificar_disponibilidade(username, proxy_url=None):
         else:
             return None
     except requests.RequestException:
-        origem = "no proxy" if proxy_url else "na conexão local"
+        origem = "no proxy (SOCKS5)" if proxy_url else "na conexão local"
         print(f"  ❌ Erro de conexão {origem}", end="", flush=True)
         return None
 
