@@ -22,10 +22,10 @@ else:
 
 # Lista de Proxies (Lê do ambiente se configurado, senão usa a padrão)
 if os.getenv("PROXIES_LISTA"):
-    PROXIES_LISTA = [p.strip() for p in os.getenv("PROXIES_LISTA").split(",")]
+    PROXIES_LISTA = [p.strip() for p in os.getenv("PROXIES_LISTA").split(",") if p.strip()]
 else:
     PROXIES_LISTA = [
-      
+        # Deixe vazio se quiser testar sem proxy
     ]
 # ─────────────────────────────────────────
 
@@ -46,7 +46,7 @@ def gerar_senha():
 def gerar_nick():
     return "".join(random.choices(CHARS, k=TAMANHO))
 
-def verificar_disponibilidade(username, proxy_url):
+def verificar_disponibilidade(username, proxy_url=None):
     url = "https://discord.com/api/v9/auth/register"
     payload = {
         "username": username,
@@ -56,10 +56,11 @@ def verificar_disponibilidade(username, proxy_url):
         "consent": True
     }
     
+    # Se houver proxy configurado, monta o dicionário. Caso contrário, envia None.
     proxies_config = {
         "http": proxy_url,
         "https": proxy_url
-    }
+    } if proxy_url else None
 
     try:
         r = requests.post(url, json=payload, headers=HEADERS, proxies=proxies_config, timeout=10)
@@ -74,12 +75,17 @@ def verificar_disponibilidade(username, proxy_url):
             return True
         elif r.status_code == 429:
             retry = float(r.headers.get("Retry-After", 5))
-            print(f"  ⚠️  Rate limit no IP do Proxy! (Bloqueio de {retry:.0f}s)", end="", flush=True)
+            origem = "no IP do Proxy" if proxy_url else "no seu IP Local"
+            print(f"  ⚠️  Rate limit {origem}! (Bloqueio de {retry:.0f}s)", end="", flush=True)
+            # Aumenta o tempo de espera local se bater no limite sem proxy
+            if not proxy_url:
+                time.sleep(retry)
             return None
         else:
             return None
     except requests.RequestException:
-        print("  ❌ Erro de conexão no proxy", end="", flush=True)
+        origem = "no proxy" if proxy_url else "na conexão local"
+        print(f"  ❌ Erro de conexão {origem}", end="", flush=True)
         return None
 
 def main():
@@ -88,9 +94,10 @@ def main():
     print(f"Caracteres: {CHARS}")
     print(f"Combinações possíveis: {len(CHARS)**TAMANHO:,}")
     print(f"Proxies carregados: {len(PROXIES_LISTA)}")
+    if not PROXIES_LISTA:
+        print("ℹ️  Nenhum proxy configurado. As requisições usarão o IP local.")
     
     try:
-        # Mudamos o nome da chave para isolar o histórico dos nicks de 4 letras
         total_testados_inicial = db.scard("discord:4letras:testados")
         print(f"🔗 Conectado ao Redis! {total_testados_inicial} nicks já conhecidos na memória.")
     except redis.RedisError as e:
@@ -102,43 +109,34 @@ def main():
 
     tentativas_sessao = 0
 
-    if not PROXIES_LISTA:
-        print("🚨 Erro: Nenhuma proxy configurada. Abortando.")
-        return
-
     while True:
         nick = gerar_nick()
         
-        # O Redis impede o script de testar o mesmo nick duas vezes
         if db.sismember("discord:4letras:testados", nick):
             continue
         
         print(f"[{tentativas_sessao+1:>5}] Testando: {nick} ... ", end="", flush=True)
 
-        proxy_atual = random.choice(PROXIES_LISTA)
+        # Escolhe um proxy se a lista contiver itens, caso contrário usa None
+        proxy_atual = random.choice(PROXIES_LISTA) if PROXIES_LISTA else None
         disponivel = verificar_disponibilidade(nick, proxy_atual)
 
         if disponivel is True:
             tentativas_sessao += 1
-            # Destaca bem no log para você achar fácil depois
             print(" ✨🎉 ✅ DISPONÍVEL! ✅ 🎉✨", flush=True)
-            
-            # Salva na memória de testados para não repetir
             db.sadd("discord:4letras:testados", nick)
             time.sleep(DELAY)
 
         elif disponivel is False:
             tentativas_sessao += 1
             print(" ❌ ocupado", flush=True)
-            
-            # Salva na memória de testados para não repetir
             db.sadd("discord:4letras:testados", nick)
             time.sleep(DELAY)
 
         else:
-            print(" -> 🔄 Pulando e alternando proxy imediatamente...", flush=True)
+             se_com_proxy = "e alternando proxy imediatamente..." if PROXIES_LISTA else "e aguardando rate limit..."
+            print(f" -> 🔄 Pulando {se_com_proxy}", flush=True)
 
-        # Print de progresso a cada 10 rodadas
         if tentativas_sessao > 0 and tentativas_sessao % 10 == 0 and disponivel is not None:
             total_geral = db.scard("discord:4letras:testados")
             print(f"  📊 Progresso total de 4 letras testados: {total_geral}", flush=True)
