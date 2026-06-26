@@ -10,7 +10,7 @@ import redis
 # ─────────────────────────────────────────
 TAMANHO = 4
 CHARS = string.ascii_lowercase  # Apenas letras minúsculas (a-z)
-DELAY = 2.0
+DELAY = 10.0
 
 # Conexão Automática com o Redis do Railway para lembrar dos nicks já testados
 REDIS_URL = os.getenv("REDIS_URL")
