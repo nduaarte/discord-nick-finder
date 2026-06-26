@@ -22,16 +22,7 @@ else:
 
 # Lista de Proxies Fixas (Webshare) — Agora com as portas INDIVIDUAIS corretas!
 PROXIES_LISTA = [
-"http://rzvhgrsr:551w6d36l0fb@31.59.20.176:6754",
-    "http://rzvhgrsr:551w6d36l0fb@31.56.127.193:7684",
-    "http://rzvhgrsr:551w6d36l0fb@45.38.107.97:6014",
-    "http://rzvhgrsr:551w6d36l0fb@38.154.203.95:5863",
-    "http://rzvhgrsr:551w6d36l0fb@198.105.121.200:6462",
-    "http://rzvhgrsr:551w6d36l0fb@64.137.96.74:6641",
-    "http://rzvhgrsr:551w6d36l0fb@198.23.243.226:6361",
-    "http://rzvhgrsr:551w6d36l0fb@38.154.185.97:6370",
-    "http://rzvhgrsr:551w6d36l0fb@142.111.67.146:5611",
-    "http://rzvhgrsr:551w6d36l0fb@191.96.254.138:6185"
+
 ]
 # ─────────────────────────────────────────
 
