@@ -20,22 +20,19 @@ if REDIS_URL:
 else:
     db = redis.Redis(host='localhost', port=6379, decode_responses=True)
 
-# Lista de Proxies (Lê do ambiente se configurado, senão usa a padrão)
-if os.getenv("PROXIES_LISTA"):
-    PROXIES_LISTA = [p.strip() for p in os.getenv("PROXIES_LISTA").split(",") if p.strip()]
-else:
-    PROXIES_LISTA = [
-        "http://rzvhgrsr:551w6d36l0fb@31.59.20.176:6754",
-        "http://rzvhgrsr:551w6d36l0fb@31.56.127.193:6754",
-        "http://rzvhgrsr:551w6d36l0fb@45.38.107.97:6754",
-        "http://rzvhgrsr:551w6d36l0fb@38.154.203.95:6754",
-        "http://rzvhgrsr:551w6d36l0fb@198.105.121.200:6754",
-        "http://rzvhgrsr:551w6d36l0fb@64.137.96.74:6754",
-        "http://rzvhgrsr:551w6d36l0fb@198.23.243.226:6754",
-        "http://rzvhgrsr:551w6d36l0fb@38.154.185.97:6754",
-        "http://rzvhgrsr:551w6d36l0fb@142.111.67.146:6754",
-        "http://rzvhgrsr:551w6d36l0fb@191.96.254.138:6754"
-    ]
+# Lista de Proxies Fixas (Webshare)
+PROXIES_LISTA = [
+    "http://rzvhgrsr:551w6d36l0fb@31.59.20.176:6754",
+    "http://rzvhgrsr:551w6d36l0fb@31.56.127.193:6754",
+    "http://rzvhgrsr:551w6d36l0fb@45.38.107.97:6754",
+    "http://rzvhgrsr:551w6d36l0fb@38.154.203.95:6754",
+    "http://rzvhgrsr:551w6d36l0fb@198.105.121.200:6754",
+    "http://rzvhgrsr:551w6d36l0fb@64.137.96.74:6754",
+    "http://rzvhgrsr:551w6d36l0fb@198.23.243.226:6754",
+    "http://rzvhgrsr:551w6d36l0fb@38.154.185.97:6754",
+    "http://rzvhgrsr:551w6d36l0fb@142.111.67.146:6754",
+    "http://rzvhgrsr:551w6d36l0fb@191.96.254.138:6754"
+]
 # ─────────────────────────────────────────
 
 HEADERS = {
@@ -65,13 +62,13 @@ def verificar_disponibilidade(username, proxy_url=None):
         "consent": True
     }
     
-    # Se houver proxy configurado, monta o dicionário. Caso contrário, envia None.
     proxies_config = {
         "http": proxy_url,
         "https": proxy_url
     } if proxy_url else None
 
     try:
+        # Mantive o timeout em 10 porque as proxies da Webshare são altamente estáveis
         r = requests.post(url, json=payload, headers=HEADERS, proxies=proxies_config, timeout=10)
         data = r.json()
         errors = str(data)
@@ -86,7 +83,6 @@ def verificar_disponibilidade(username, proxy_url=None):
             retry = float(r.headers.get("Retry-After", 5))
             origem = "no IP do Proxy" if proxy_url else "no seu IP Local"
             print(f"  ⚠️  Rate limit {origem}! (Bloqueio de {retry:.0f}s)", end="", flush=True)
-            # Aumenta o tempo de espera local se bater no limite sem proxy
             if not proxy_url:
                 time.sleep(retry)
             return None
@@ -98,22 +94,25 @@ def verificar_disponibilidade(username, proxy_url=None):
         return None
 
 def main():
-    print("🎯 Discord Finder — 4 letras + Logs do Railway")
-    print("=" * 50)
-    print(f"Caracteres: {CHARS}")
-    print(f"Combinações possíveis: {len(CHARS)**TAMANHO:,}")
-    print(f"Proxies carregados: {len(PROXIES_LISTA)}")
-    if not PROXIES_LISTA:
-        print("ℹ️  Nenhum proxy configurado. As requisições usarão o IP local.")
+    print("🎯 Discord Finder — 4 letras + Logs do Railway", flush=True)
+    print("=" * 50, flush=True)
+    print(f"Caracteres: {CHARS}", flush=True)
+    print(f"Combinações possíveis: {len(CHARS)**TAMANHO:,}", flush=True)
+    print(f"⚙️  Usando proxies fixas da Webshare: {len(PROXIES_LISTA)}", flush=True)
+    
+    print("=" * 50, flush=True)
+    print("🔗 Conectando ao Redis...", end="", flush=True)
     
     try:
         total_testados_inicial = db.scard("discord:4letras:testados")
-        print(f"🔗 Conectado ao Redis! {total_testados_inicial} nicks já conhecidos na memória.")
+        total_achados_inicial = db.scard("discord:4letras:disponiveis")
+        print(f" ✅ Conectado! {total_testados_inicial} conhecidos | {total_achados_inicial} já encontrados.", flush=True)
     except redis.RedisError as e:
-        print(f"🚨 Erro crítico ao conectar no Redis: {e}")
+        print(f"\n🚨 Erro crítico ao conectar no Redis: {e}", flush=True)
         return
         
-    print("=" * 50)
+    print("=" * 50, flush=True)
+    print("🚀 Iniciando loop de testes...", flush=True)
     print()
 
     tentativas_sessao = 0
@@ -126,7 +125,6 @@ def main():
         
         print(f"[{tentativas_sessao+1:>5}] Testando: {nick} ... ", end="", flush=True)
 
-        # Escolhe um proxy se a lista contiver itens, caso contrário usa None
         proxy_atual = random.choice(PROXIES_LISTA) if PROXIES_LISTA else None
         disponivel = verificar_disponibilidade(nick, proxy_atual)
 
@@ -134,6 +132,7 @@ def main():
             tentativas_sessao += 1
             print(" ✨🎉 ✅ DISPONÍVEL! ✅ 🎉✨", flush=True)
             db.sadd("discord:4letras:testados", nick)
+            db.sadd("discord:4letras:disponiveis", nick)
             time.sleep(DELAY)
 
         elif disponivel is False:
@@ -143,16 +142,17 @@ def main():
             time.sleep(DELAY)
 
         else:
-             se_com_proxy = "e alternando proxy imediatamente..." if PROXIES_LISTA else "e aguardando rate limit..."
+            se_com_proxy = "e alternando proxy imediatamente..." if PROXIES_LISTA else "e aguardando rate limit..."
             print(f" -> 🔄 Pulando {se_com_proxy}", flush=True)
 
         if tentativas_sessao > 0 and tentativas_sessao % 10 == 0 and disponivel is not None:
             total_geral = db.scard("discord:4letras:testados")
-            print(f"  📊 Progresso total de 4 letras testados: {total_geral}", flush=True)
+            total_sucessos = db.scard("discord:4letras:disponiveis")
+            print(f"  📊 Progresso: {total_geral} testados | ⭐ {total_sucessos} DISPONÍVEIS salvos.", flush=True)
 
 
 if __name__ == "__main__":
     try:
         main()
     except KeyboardInterrupt:
-        print("\n⛔ Parado pelo usuário.")
+        print("\n⛔ Parado pelo usuário.", flush=True)
