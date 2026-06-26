@@ -65,6 +65,7 @@ def verificar_disponibilidade(username, proxy_url=None):
         "consent": True
     }
     
+    # Se houver proxy configurado, monta o dicionário. Caso contrário, envia None.
     proxies_config = {
         "http": proxy_url,
         "https": proxy_url
@@ -85,6 +86,7 @@ def verificar_disponibilidade(username, proxy_url=None):
             retry = float(r.headers.get("Retry-After", 5))
             origem = "no IP do Proxy" if proxy_url else "no seu IP Local"
             print(f"  ⚠️  Rate limit {origem}! (Bloqueio de {retry:.0f}s)", end="", flush=True)
+            # Aumenta o tempo de espera local se bater no limite sem proxy
             if not proxy_url:
                 time.sleep(retry)
             return None
@@ -106,8 +108,7 @@ def main():
     
     try:
         total_testados_inicial = db.scard("discord:4letras:testados")
-        total_achados_inicial = db.scard("discord:4letras:disponiveis")
-        print(f"🔗 Conectado ao Redis! {total_testados_inicial} conhecidos | {total_achados_inicial} já encontrados.")
+        print(f"🔗 Conectado ao Redis! {total_testados_inicial} nicks já conhecidos na memória.")
     except redis.RedisError as e:
         print(f"🚨 Erro crítico ao conectar no Redis: {e}")
         return
@@ -125,16 +126,14 @@ def main():
         
         print(f"[{tentativas_sessao+1:>5}] Testando: {nick} ... ", end="", flush=True)
 
+        # Escolhe um proxy se a lista contiver itens, caso contrário usa None
         proxy_atual = random.choice(PROXIES_LISTA) if PROXIES_LISTA else None
         disponivel = verificar_disponibilidade(nick, proxy_atual)
 
         if disponivel is True:
             tentativas_sessao += 1
             print(" ✨🎉 ✅ DISPONÍVEL! ✅ 🎉✨", flush=True)
-            
-            # SALVA EM AMBOS: No histórico geral e na lista de conquistas
             db.sadd("discord:4letras:testados", nick)
-            db.sadd("discord:4letras:disponiveis", nick)
             time.sleep(DELAY)
 
         elif disponivel is False:
@@ -144,13 +143,12 @@ def main():
             time.sleep(DELAY)
 
         else:
-            se_com_proxy = "e alternando proxy imediatamente..." if PROXIES_LISTA else "e aguardando rate limit..."
+             se_com_proxy = "e alternando proxy imediatamente..." if PROXIES_LISTA else "e aguardando rate limit..."
             print(f" -> 🔄 Pulando {se_com_proxy}", flush=True)
 
         if tentativas_sessao > 0 and tentativas_sessao % 10 == 0 and disponivel is not None:
             total_geral = db.scard("discord:4letras:testados")
-            total_sucessos = db.scard("discord:4letras:disponiveis")
-            print(f"  📊 Progresso: {total_geral} testados | ⭐ {total_sucessos} DISPONÍVEIS salvos.", flush=True)
+            print(f"  📊 Progresso total de 4 letras testados: {total_geral}", flush=True)
 
 
 if __name__ == "__main__":
