@@ -27,11 +27,11 @@ PROXIES_LISTA = [
     "http://jjqzajjj:elw3a92t7zib@45.38.107.97:6014/", 
     "http://jjqzajjj:elw3a92t7zib@38.154.203.95:5863/",
     "http://jjqzajjj:elw3a92t7zib@198.105.121.200:6462/",
-    "http://jjqzajjj:elw3a92t7zib@64.137.96.74:6641/",
-    "http://jjqzajjj:elw3a92t7zib@198.23.243.226:6361/",
-    "http://jjqzajjj:elw3a92t7zib@38.154.185.97:6370/",
-    "http://jjqzajjj:elw3a92t7zib@142.111.67.146:5611/",
-    "http://jjqzajjj:elw3a92t7zib@191.96.254.138:6185/" 
+    # "http://jjqzajjj:elw3a92t7zib@64.137.96.74:6641/",
+    # "http://jjqzajjj:elw3a92t7zib@198.23.243.226:6361/",
+    # "http://jjqzajjj:elw3a92t7zib@38.154.185.97:6370/",
+    # "http://jjqzajjj:elw3a92t7zib@142.111.67.146:5611/",
+    # "http://jjqzajjj:elw3a92t7zib@191.96.254.138:6185/" 
 ]
 # ─────────────────────────────────────────
 
