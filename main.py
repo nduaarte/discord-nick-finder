@@ -1,99 +1,42 @@
-import requests
-import random
-import string
-import time
-import os
-import redis
-
-# ─────────────────────────────────────────
-# CONFIGURAÇÃO — 4 CARACTERES, APENAS LETRAS
-# ─────────────────────────────────────────
-TAMANHO = 4
-CHARS = string.ascii_lowercase  # Apenas letras minúsculas (a-z)
-DELAY = 2.0
-
-# Conexão Automática com o Redis do Railway para lembrar dos nicks já testados
-REDIS_URL = os.getenv("REDIS_URL")
-
-if REDIS_URL:
-    db = redis.Redis.from_url(REDIS_URL, decode_responses=True)
-else:
-    db = redis.Redis(host='localhost', port=6379, decode_responses=True)
-
-# Lista de Proxies (Lê do ambiente se configurado, senão usa a padrão)
-if os.getenv("PROXIES_LISTA"):
-    PROXIES_LISTA = [p.strip() for p in os.getenv("PROXIES_LISTA").split(",") if p.strip()]
-else:
-    PROXIES_LISTA = [
-        # Deixe vazio se quiser testar sem proxy
-    ]
-# ─────────────────────────────────────────
-
-HEADERS = {
-    "Content-Type": "application/json",
-    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
-}
-
-def gerar_senha():
-    upper = random.choices(string.ascii_uppercase, k=4)
-    lower = random.choices(string.ascii_lowercase, k=4)
-    digits = random.choices(string.digits, k=4)
-    special = random.choices("!@#$%^&*", k=4)
-    all_chars = upper + lower + digits + special
-    random.shuffle(all_chars)
-    return "".join(all_chars)
-
-def gerar_nick():
-    return "".join(random.choices(CHARS, k=TAMANHO))
-
-def verificar_disponibilidade(username, proxy_url=None):
-    url = "https://discord.com/api/v9/auth/register"
-    payload = {
-        "username": username,
-        "email": f"check_{random.randint(100000,999999)}@tempcheck.invalid",
-        "password": gerar_senha(),
-        "date_of_birth": "2000-01-01",
-        "consent": True
-    }
+def puxar_proxies_da_api():
+    """Tenta buscar proxies gratuitas. Se falhar, retorna uma lista vazia sem quebrar o script."""
+    url = "https://api.proxyscrape.com/v2/?request=displayproxies&protocol=http&timeout=3000&country=all"
+    print("🌐 Tentando carregar proxies frescas da API pública...", end="", flush=True)
     
-    proxies_config = {
-        "http": proxy_url,
-        "https": proxy_url
-    } if proxy_url else None
-
     try:
-        r = requests.post(url, json=payload, headers=HEADERS, proxies=proxies_config, timeout=10)
-        data = r.json()
-        errors = str(data)
-
+        # Timeout curto (5s) para o script não ficar travado se a API estiver lenta
+        r = requests.get(url, timeout=5)
         if r.status_code == 200:
-            return True
-        elif "USERNAME_TOO_MANY_USERS" in errors or "username" in str(data.get("errors", {})):
-            return False
-        elif "email" in str(data.get("errors", {})) or "captcha" in errors.lower():
-            return True
-        elif r.status_code == 429:
-            retry = float(r.headers.get("Retry-After", 5))
-            origem = "no IP do Proxy" if proxy_url else "no seu IP Local"
-            print(f"  ⚠️  Rate limit {origem}! (Bloqueio de {retry:.0f}s)", end="", flush=True)
-            if not proxy_url:
-                time.sleep(retry)
-            return None
+            proxies = [p.strip() for p in r.text.split("\r\n") if p.strip()]
+            print(f" ✅ {len(proxies)} proxies carregadas com sucesso!")
+            return proxies
         else:
-            return None
-    except requests.RequestException:
-        origem = "no proxy" if proxy_url else "na conexão local"
-        print(f"  ❌ Erro de conexão {origem}", end="", flush=True)
-        return None
+            print(f" ⚠️ API respondeu com status {r.status_code}. Usando IP local.")
+    except Exception as e:
+        # Captura qualquer erro de rede, queda da API ou DNS sem derrubar o programa
+        print(" ⚠️ Falha ao conectar na API de proxies (Timeout/Queda). Usando IP local.")
+    
+    return []
 
 def main():
     print("🎯 Discord Finder — 4 letras + Logs do Railway")
     print("=" * 50)
     print(f"Caracteres: {CHARS}")
     print(f"Combinações possíveis: {len(CHARS)**TAMANHO:,}")
-    print(f"Proxies carregados: {len(PROXIES_LISTA)}")
+    
+    # ─── LOGICA DE CARREGAMENTO SEGURA ───
+    global PROXIES_LISTA
+    if os.getenv("PROXIES_LISTA"):
+        # 1ª Opção: Se você configurou proxies fixas no Railway, usa elas
+        PROXIES_LISTA = [p.strip() for p in os.getenv("PROXIES_LISTA").split(",") if p.strip()]
+        print(f"⚙️ Usando proxies das variáveis de ambiente: {len(PROXIES_LISTA)}")
+    else:
+        # 2ª Opção: Tenta buscar da API. Se falhar, PROXIES_LISTA vira [] e roda no IP local
+        PROXIES_LISTA = puxar_proxies_da_api()
+    
     if not PROXIES_LISTA:
-        print("ℹ️  Nenhum proxy configurado. As requisições usarão o IP local.")
+        print("ℹ️  Nenhum proxy disponível. As requisições usarão o IP local diretamente.")
+    # ─────────────────────────────────────
     
     try:
         total_testados_inicial = db.scard("discord:4letras:testados")
@@ -122,8 +65,6 @@ def main():
         if disponivel is True:
             tentativas_sessao += 1
             print(" ✨🎉 ✅ DISPONÍVEL! ✅ 🎉✨", flush=True)
-            
-            # SALVA EM AMBOS: No histórico geral e na lista de conquistas
             db.sadd("discord:4letras:testados", nick)
             db.sadd("discord:4letras:disponiveis", nick)
             time.sleep(DELAY)
@@ -142,10 +83,3 @@ def main():
             total_geral = db.scard("discord:4letras:testados")
             total_sucessos = db.scard("discord:4letras:disponiveis")
             print(f"  📊 Progresso: {total_geral} testados | ⭐ {total_sucessos} DISPONÍVEIS salvos.", flush=True)
-
-
-if __name__ == "__main__":
-    try:
-        main()
-    except KeyboardInterrupt:
-        print("\n⛔ Parado pelo usuário.")
