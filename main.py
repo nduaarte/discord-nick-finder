@@ -22,7 +22,7 @@ else:
 
 # Lista de Proxies Fixas (Webshare)
 PROXIES_LISTA = [
-    "http://rzvhgrsr:551w6d36l0fb@31.59.20.176:6754/".
+    "http://rzvhgrsr:551w6d36l0fb@31.59.20.176:6754/",
     "http://rzvhgrsr:551w6d36l0fb@31.56.127.193:7684/" 
 ]
 # ─────────────────────────────────────────
