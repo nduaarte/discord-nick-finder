@@ -19,10 +19,11 @@ def puxar_proxies_da_api():
     return []
 
 def main():
-    print("🎯 Discord Finder — 4 letras + Logs do Railway")
-    print("=" * 50)
-    print(f"Caracteres: {CHARS}")
-    print(f"Combinações possíveis: {len(CHARS)**TAMANHO:,}")
+    # Adicionado flush=True aqui para forçar o Railway a mostrar o início imediatamente
+    print("🎯 Discord Finder — 4 letras + Logs do Railway", flush=True)
+    print("=" * 50, flush=True)
+    print(f"Caracteres: {CHARS}", flush=True)
+    print(f"Combinações possíveis: {len(CHARS)**TAMANHO:,}", flush=True)
     
     # ─── LOGICA DE CARREGAMENTO SEGURA ───
     global PROXIES_LISTA
