@@ -20,8 +20,13 @@ if REDIS_URL:
 else:
     db = redis.Redis(host='localhost', port=6379, decode_responses=True)
 
-# Lista global inicial vazia
-PROXIES_LISTA = []
+# Lista de Proxies (Lê do ambiente se configurado, senão usa a padrão)
+if os.getenv("PROXIES_LISTA"):
+    PROXIES_LISTA = [p.strip() for p in os.getenv("PROXIES_LISTA").split(",") if p.strip()]
+else:
+    PROXIES_LISTA = [
+        # Deixe vazio se quiser testar sem proxy
+    ]
 # ─────────────────────────────────────────
 
 HEADERS = {
@@ -81,56 +86,24 @@ def verificar_disponibilidade(username, proxy_url=None):
         print(f"  ❌ Erro de conexão {origem}", end="", flush=True)
         return None
 
-def puxar_proxies_da_api():
-    """Busca proxies com timeout ultra agressivo de 2 segundos para nunca travar a inicialização."""
-    url = "https://api.proxyscrape.com/v2/?request=displayproxies&protocol=http&timeout=2000&country=all"
-    print("🌐 Tentando carregar proxies frescas da API pública...", end="", flush=True)
-    
-    try:
-        # Se a API não responder em 2 segundos, o requests aborta
-        r = requests.get(url, timeout=2)
-        if r.status_code == 200:
-            proxies = [p.strip() for p in r.text.split("\r\n") if p.strip()]
-            print(f" ✅ {len(proxies)} proxies carregadas!", flush=True)
-            return proxies
-        else:
-            print(f" ⚠️ API com status {r.status_code}. Usando IP local.", flush=True)
-    except Exception:
-        print(" ⚠️ Timeout/Falha na API de proxies. Usando IP local.", flush=True)
-    
-    return []
-
 def main():
-    # Garante que os prints iniciais apareçam no log IMEDIATAMENTE
-    print("🎯 Discord Finder — 4 letras + Logs do Railway", flush=True)
-    print("=" * 50, flush=True)
-    print(f"Caracteres: {CHARS}", flush=True)
-    print(f"Combinações possíveis: {len(CHARS)**TAMANHO:,}", flush=True)
-    
-    global PROXIES_LISTA
-    if os.getenv("PROXIES_LISTA"):
-        PROXIES_LISTA = [p.strip() for p in os.getenv("PROXIES_LISTA").split(",") if p.strip()]
-        print(f"⚙️ Usando proxies das variáveis de ambiente: {len(PROXIES_LISTA)}", flush=True)
-    else:
-        # Chama a função com a proteção de timeout curto
-        PROXIES_LISTA = puxar_proxies_da_api()
-    
+    print("🎯 Discord Finder — 4 letras + Logs do Railway")
+    print("=" * 50)
+    print(f"Caracteres: {CHARS}")
+    print(f"Combinações possíveis: {len(CHARS)**TAMANHO:,}")
+    print(f"Proxies carregados: {len(PROXIES_LISTA)}")
     if not PROXIES_LISTA:
-        print("ℹ️  Nenhum proxy disponível. As requisições usarão o IP local diretamente.", flush=True)
-    
-    print("=" * 50, flush=True)
-    print("🔗 Conectando ao Redis...", end="", flush=True)
+        print("ℹ️  Nenhum proxy configurado. As requisições usarão o IP local.")
     
     try:
         total_testados_inicial = db.scard("discord:4letras:testados")
         total_achados_inicial = db.scard("discord:4letras:disponiveis")
-        print(f" ✅ Conectado! {total_testados_inicial} conhecidos | {total_achados_inicial} já encontrados.", flush=True)
+        print(f"🔗 Conectado ao Redis! {total_testados_inicial} conhecidos | {total_achados_inicial} já encontrados.")
     except redis.RedisError as e:
-        print(f"\n🚨 Erro crítico ao conectar no Redis: {e}", flush=True)
+        print(f"🚨 Erro crítico ao conectar no Redis: {e}")
         return
         
-    print("=" * 50, flush=True)
-    print("🚀 Iniciando loop de testes...", flush=True)
+    print("=" * 50)
     print()
 
     tentativas_sessao = 0
@@ -149,6 +122,8 @@ def main():
         if disponivel is True:
             tentativas_sessao += 1
             print(" ✨🎉 ✅ DISPONÍVEL! ✅ 🎉✨", flush=True)
+            
+            # SALVA EM AMBOS: No histórico geral e na lista de conquistas
             db.sadd("discord:4letras:testados", nick)
             db.sadd("discord:4letras:disponiveis", nick)
             time.sleep(DELAY)
@@ -173,4 +148,4 @@ if __name__ == "__main__":
     try:
         main()
     except KeyboardInterrupt:
-        print("\n⛔ Parado pelo usuário.", flush=True)
+        print("\n⛔ Parado pelo usuário.")
