@@ -22,11 +22,11 @@ else:
 
 # Lista de Proxies Fixas (Webshare) — Agora com as portas INDIVIDUAIS corretas!
 PROXIES_LISTA = [
-    "http://jjqzajjj:elw3a92t7zib@31.59.20.176:6754/",
-    "http://jjqzajjj:elw3a92t7zib@31.56.127.193:7684/",
-    "http://jjqzajjj:elw3a92t7zib@45.38.107.97:6014/", 
-    "http://jjqzajjj:elw3a92t7zib@38.154.203.95:5863/",
-    "http://jjqzajjj:elw3a92t7zib@198.105.121.200:6462/",
+    # "http://jjqzajjj:elw3a92t7zib@31.59.20.176:6754/",
+    # "http://jjqzajjj:elw3a92t7zib@31.56.127.193:7684/",
+    # "http://jjqzajjj:elw3a92t7zib@45.38.107.97:6014/", 
+    # "http://jjqzajjj:elw3a92t7zib@38.154.203.95:5863/",
+    # "http://jjqzajjj:elw3a92t7zib@198.105.121.200:6462/",
     # "http://jjqzajjj:elw3a92t7zib@64.137.96.74:6641/",
     # "http://jjqzajjj:elw3a92t7zib@198.23.243.226:6361/",
     # "http://jjqzajjj:elw3a92t7zib@38.154.185.97:6370/",
