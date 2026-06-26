@@ -22,16 +22,8 @@ else:
 
 # Lista de Proxies Fixas (Webshare)
 PROXIES_LISTA = [
-    "http://rzvhgrsr:551w6d36l0fb@31.59.20.176:6754",
-    "http://rzvhgrsr:551w6d36l0fb@31.56.127.193:6754",
-    "http://rzvhgrsr:551w6d36l0fb@45.38.107.97:6754",
-    "http://rzvhgrsr:551w6d36l0fb@38.154.203.95:6754",
-    "http://rzvhgrsr:551w6d36l0fb@198.105.121.200:6754",
-    "http://rzvhgrsr:551w6d36l0fb@64.137.96.74:6754",
-    "http://rzvhgrsr:551w6d36l0fb@198.23.243.226:6754",
-    "http://rzvhgrsr:551w6d36l0fb@38.154.185.97:6754",
-    "http://rzvhgrsr:551w6d36l0fb@142.111.67.146:6754",
-    "http://rzvhgrsr:551w6d36l0fb@191.96.254.138:6754"
+    "http://rzvhgrsr:551w6d36l0fb@31.59.20.176:6754/".
+    "http://rzvhgrsr:551w6d36l0fb@31.56.127.193:7684/" 
 ]
 # ─────────────────────────────────────────
 
